@@ -1,15 +1,19 @@
 ### Copyright (C) 2017 NVIDIA Corporation. All rights reserved. 
 ### Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode).
+### ssd
 import time
 import os
 import torch
 from subprocess import call
+# >> 20210919 >> Add visdom support
+import visdom
 
 from options.train_options import TrainOptions
 from data.data_loader import CreateDataLoader
 from models.models import create_model, create_optimizer, init_params, save_models, update_models
 import util.util as util
 from util.visualizer import Visualizer
+import numpy as np
 
 def train():
     opt = TrainOptions().parse()
@@ -31,7 +35,8 @@ def train():
     ### set parameters    
     n_gpus, tG, tD, tDB, s_scales, t_scales, input_nc, output_nc, \
         start_epoch, epoch_iter, print_freq, total_steps, iter_path = init_params(opt, modelG, modelD, data_loader)
-    visualizer = Visualizer(opt)    
+    visualizer = Visualizer(opt)  
+    visdom_server = visdom.Visdom(env='vid2vid_face_512', port=8097)  
 
     ### real training starts here  
     for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
@@ -53,7 +58,10 @@ def train():
                 ###################################### Forward Pass ##########################
                 ####### generator                  
                 fake_B, fake_B_raw, flow, weight, real_A, real_Bp, fake_B_last = modelG(input_A, input_B, inst_A, fake_B_prev_last)
-
+                visdom_server.images(
+                    np.random.randn(20, 3, 64, 64),
+                    opts = dict(title='Random images', caption='How random!')
+                )
                 ####### discriminator            
                 ### individual frame discriminator          
                 real_B_prev, real_B = real_Bp[:, :-1], real_Bp[:, 1:]   # the collection of previous and current real frames
